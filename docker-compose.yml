@@ -1,0 +1,23 @@
+﻿services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: petneighbor-postgres
+    environment:
+      POSTGRES_DB: petneighbor
+      POSTGRES_USER: petneighbor
+      POSTGRES_PASSWORD: petneighbor
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/sql/init_postgis.sql:/docker-entrypoint-initdb.d/init_postgis.sql
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: petneighbor-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+
+volumes:
+  postgres_data:
