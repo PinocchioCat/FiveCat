@@ -278,7 +278,7 @@ MOCK_SUPPORT_MESSAGES = [
         "id": 1,
         "user_id": 2,
         "sender": "support",
-        "content": "您好！，家里的毛孩子是需要什么样的服务？\n关于更多毛孩子的服务或者问题，欢迎与我沟通交流。\n电话：15216899711  微信：123qaz22",
+        "content": "您好！，家里的毛孩子是需要什么样的服务？\n关于更多毛孩子的服务或者问题，欢迎与我沟通交流。\n电话：138xxxxxxx  微信：123qaz22",
         "created_at": (NOW - timedelta(hours=1)).isoformat(),
     },
     {

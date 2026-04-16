@@ -1,29 +1,28 @@
-﻿<script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+<script setup lang="ts">
+import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 
-import { api } from '../api/client'
 import SectionHeader from '../components/SectionHeader.vue'
-import { SUPPORT_AGENT_AVATAR, SUPPORT_AGENT_NAME, SUPPORT_TITLE } from '../constants/support'
 import { clearSession, currentRole, currentUser, isAuthenticated, pets } from '../store/session'
-import type { SupportMessage } from '../types/app'
 
 const router = useRouter()
-const supportMessages = ref<SupportMessage[]>([])
-const supportLoading = ref(false)
-const sendingMessage = ref(false)
-const supportForm = reactive({
-  content: ''
-})
 
 const isSitter = computed(() => currentRole.value === 'sitter')
-const stats = computed(() => [
-  { label: '当前身份', value: currentRole.value === 'owner' ? '宠物主人' : '铲屎官' },
-  { label: '评分', value: currentUser.value?.rating.toFixed(1) ?? '5.0' },
-  { label: '完成服务', value: currentUser.value?.completed_orders ?? 0 },
-  { label: '宠物档案', value: pets.value.length }
-])
+const stats = computed(() =>
+  isSitter.value
+    ? [
+        { label: '当前身份', value: '铲屎官' },
+        { label: '评分', value: currentUser.value?.rating.toFixed(1) ?? '5.0' },
+        { label: '完成服务', value: currentUser.value?.completed_orders ?? 0 },
+        { label: '宠物档案', value: pets.value.length }
+      ]
+    : [
+        { label: '当前身份', value: '宠物主人' },
+        { label: '完成服务', value: currentUser.value?.completed_orders ?? 0 },
+        { label: '宠物档案', value: pets.value.length }
+      ]
+)
 
 const sitterDetails = computed(() => {
   if (!currentUser.value) return []
@@ -48,35 +47,8 @@ function petGenderLabel(gender?: string) {
   return '未知'
 }
 
-function messageTime(message: SupportMessage) {
-  return new Date(message.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-}
-
-async function loadSupportMessages() {
-  if (!isAuthenticated.value || !currentUser.value) return
-  supportLoading.value = true
-  try {
-    supportMessages.value = await api.fetchSupportMessages()
-  } finally {
-    supportLoading.value = false
-  }
-}
-
-async function sendMessage() {
-  const content = supportForm.content.trim()
-  if (!content) {
-    ElMessage.info('请输入想咨询客服的问题。')
-    return
-  }
-
-  sendingMessage.value = true
-  try {
-    supportMessages.value = await api.sendSupportMessage(content)
-    supportForm.content = ''
-    ElMessage.success('消息已发送，聊天记录已更新。')
-  } finally {
-    sendingMessage.value = false
-  }
+async function goOrders() {
+  await router.push(isSitter.value ? '/orders?entry=take' : '/my-orders')
 }
 
 async function logout() {
@@ -84,16 +56,12 @@ async function logout() {
   ElMessage.success('已退出登录')
   await router.push('/')
 }
-
-onMounted(() => {
-  void loadSupportMessages()
-})
 </script>
 
 <template>
   <div v-if="!isAuthenticated || !currentUser" class="empty-state-card">
     <h2>你还没有登录</h2>
-    <p>登录后可以查看身份资料、服务记录、宠物档案和客服聊天记录。</p>
+    <p>登录后可以查看身份资料、服务记录和宠物档案。</p>
     <el-button type="primary" round @click="$router.push('/auth')">前往登录</el-button>
   </div>
 
@@ -102,7 +70,7 @@ onMounted(() => {
       <SectionHeader
         eyebrow="Profile"
         title="个人中心"
-        :description="isSitter ? '这里集中展示当前铲屎官账号的认证资料、宠物档案和客服记录。' : '这里集中展示你的账号资料、宠物档案和服务信用。'"
+        :description="isSitter ? '这里集中展示当前铲屎官账号的认证资料、宠物档案和服务表现。' : '这里集中展示你的账号资料、宠物档案和服务信用。'"
       />
 
       <div class="profile-block profile-hero-card">
@@ -119,7 +87,7 @@ onMounted(() => {
         </div>
 
         <div class="profile-actions">
-          <el-button round @click="$router.push('/orders')">查看订单大厅</el-button>
+          <el-button round @click="goOrders">{{ isSitter ? '查看订单大厅' : '我的订单' }}</el-button>
           <el-button type="danger" plain round @click="logout">退出登录</el-button>
         </div>
       </div>
@@ -168,38 +136,6 @@ onMounted(() => {
         <div v-for="item in stats" :key="item.label" class="stat-card">
           <div class="stat-value">{{ item.value }}</div>
           <div class="stat-label">{{ item.label }}</div>
-        </div>
-      </div>
-
-      <div class="profile-block support-panel" v-loading="supportLoading">
-        <div class="support-panel-head">
-          <div>
-            <h3>{{ SUPPORT_TITLE }}</h3>
-            <p>系统会按当前登录账号保留聊天记录，方便继续跟进问题。</p>
-          </div>
-        </div>
-
-        <div class="support-message-list">
-          <div
-            v-for="message in supportMessages"
-            :key="message.id"
-            class="support-message-item"
-            :class="message.sender === 'user' ? 'is-user' : 'is-support'"
-          >
-            <div v-if="message.sender === 'support'" class="support-message-author">
-              <span class="support-agent-avatar is-message">
-                <img :src="SUPPORT_AGENT_AVATAR" :alt="SUPPORT_AGENT_NAME" />
-              </span>
-              <strong>{{ SUPPORT_AGENT_NAME }}</strong>
-            </div>
-            <p>{{ message.content }}</p>
-            <span>{{ messageTime(message) }}</span>
-          </div>
-        </div>
-
-        <div class="support-composer">
-          <el-input v-model="supportForm.content" type="textarea" :rows="4" placeholder="请输入想咨询客服的问题，例如实名认证、接单规则、评价申诉等。" />
-          <el-button type="primary" round :loading="sendingMessage" @click="sendMessage">发送消息</el-button>
         </div>
       </div>
     </section>

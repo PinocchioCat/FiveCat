@@ -12,7 +12,7 @@ SUPPORT_DEFAULT_MESSAGE = '\n'.join(
     [
         '您好！，家里的毛孩子是需要什么样的服务？',
         '关于更多毛孩子的服务或者问题，欢迎与我沟通交流。',
-        '电话：15216899711  微信：123qaz22',
+        '电话：138xxxxxxx  微信：123qaz22',
     ]
 )
 TEMPORARY_SUPPORT_USER_ID = 0
