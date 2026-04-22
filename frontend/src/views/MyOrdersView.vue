@@ -5,6 +5,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
 
 import { api } from '../api/client'
+import { openAuthDialog } from '../store/auth-dialog'
 import { currentUser, isAuthenticated } from '../store/session'
 import type { OrderItem } from '../types/app'
 import { formatCountDown, formatDateTime, speciesLabel, statusLabel, statusTagType } from '../utils/order'
@@ -236,6 +237,13 @@ async function cancelOrder(order: OrderItem) {
   }
 }
 
+function openLoginDialog() {
+  openAuthDialog({
+    role: 'owner',
+    redirect: '/my-orders'
+  })
+}
+
 onMounted(() => {
   void loadOrders()
   timer.value = window.setInterval(() => {
@@ -256,7 +264,7 @@ onUnmounted(() => {
   <div v-if="!isAuthenticated" class="empty-state-card">
     <h2>请先登录后再查看我的订单</h2>
     <p>登录后可以查看宠物主人账号下的全部订单状态，并继续完成支付、确认、评价和售后处理。</p>
-    <el-button type="primary" round @click="$router.push('/auth')">前往登录</el-button>
+    <el-button type="primary" round @click="openLoginDialog">前往登录</el-button>
   </div>
 
   <div v-else class="owner-orders-dashboard">

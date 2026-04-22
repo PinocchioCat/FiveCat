@@ -1,12 +1,14 @@
 ﻿<script setup lang="ts">
-import { Bell, ChatDotRound, Close, House, Location, Position, Promotion, SwitchButton, User } from '@element-plus/icons-vue'
+import { Bell, ChatDotRound, Close, House, Location, Position, Promotion, RefreshRight, SwitchButton, User } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 
 import { api } from '../api/client'
+import AuthDialog from '../components/AuthDialog.vue'
 import { SUPPORT_AGENT_AVATAR, SUPPORT_AGENT_NAME, SUPPORT_TITLE, SUPPORT_WELCOME_TEXT } from '../constants/support'
-import { clearSession, currentRole, currentUser, isAuthenticated, pets, restoreSession, setPets } from '../store/session'
+import { authDialogRedirect, authDialogRole, authDialogVisible, closeAuthDialog, openAuthDialog } from '../store/auth-dialog'
+import { clearSession, currentRole, currentUser, isAuthenticated, pets, restoreSession, setCurrentUser, setPets } from '../store/session'
 import type { SupportMessage } from '../types/app'
 
 const route = useRoute()
@@ -14,7 +16,10 @@ const router = useRouter()
 const loading = ref(true)
 const roleDialogVisible = ref(false)
 const roleDialogIntent = ref<'auth' | 'support' | null>(null)
+const reopenSupportAfterLogin = ref(false)
 const supportVisible = ref(false)
+const unreadSupport = ref(false)
+const profileMenuVisible = ref(false)
 const supportLoading = ref(false)
 const sendingSupport = ref(false)
 const supportMessages = ref<SupportMessage[]>([])
@@ -25,12 +30,7 @@ const supportForm = reactive({
 })
 const brandImage = '/images/brand-cats.jpg'
 
-const modeLabel = computed(() => {
-  if (!isAuthenticated.value) return '未登录'
-  return currentRole.value === 'owner' ? '宠主模式' : '铲屎官模式'
-})
-
-const authButtonLabel = computed(() => (isAuthenticated.value ? '进入我的主页' : '请登录'))
+const authButtonLabel = computed(() => '登录 / 注册')
 const showSupportEntry = computed(() => route.path !== '/auth')
 const roleDialogTitle = computed(() => (roleDialogIntent.value === 'support' ? '选择身份或先临时咨询' : '请选择登录身份'))
 const supportStatusText = computed(() =>
@@ -39,20 +39,45 @@ const supportStatusText = computed(() =>
 const supportWelcomeCopy = computed(() =>
   isAuthenticated.value ? '当前账号的历史咨询会自动同步，已为你接入专属人工服务。' : '先临时咨询也没问题，如需同步历史记录，稍后再选择身份登录即可。'
 )
+const headerRoleLabel = computed(() => (currentRole.value === 'owner' ? '宠物主人' : '兼职铲屎官'))
+const switchRoleLabel = computed(() => (currentRole.value === 'owner' ? '切换为兼职铲屎官' : '切换为宠物主人'))
 
-const desktopSections = [
-  { label: '首页', id: 'top' },
-  { label: '找服务', id: 'services' },
-  { label: '服务保障', id: 'assurance' },
-  { label: '宠主评价', id: 'stories' }
+const desktopNavItems = computed(() => [
+  { key: 'home', label: '首页' },
+  { key: 'services', label: currentRole.value === 'sitter' ? '任务大厅' : '找服务' },
+  { key: 'orders', label: currentRole.value === 'sitter' ? '接单记录' : '我的订单' },
+  { key: 'community', label: '社区' }
+] as const)
+
+const footerGroups = [
+  {
+    key: 'brand',
+    title: '宠友邻',
+    description: '让爱从不缺席。同城宠物互助平台，随时随地连接身边热爱动物的善良邻里。'
+  },
+  {
+    key: 'about',
+    title: '关于平台',
+    links: ['了解我们', '服务说明', '城市覆盖']
+  },
+  {
+    key: 'guarantee',
+    title: '服务保障',
+    links: ['实名认证', '平台评价', '售后申诉']
+  },
+  {
+    key: 'support',
+    title: '联系客服',
+    links: ['138-xxxx-xxxx', '常见问题', '在线反馈']
+  }
 ]
 
-const mobileNavItems = [
+const mobileNavItems = computed(() => [
   { path: '/', label: '首页', icon: House },
-  { path: '/orders', label: '订单大厅', icon: Location },
+  { path: '/orders', label: currentRole.value === 'sitter' ? '接单记录' : '订单大厅', icon: Location },
   { path: '/community', label: '宠物社区', icon: Bell },
   { path: '/profile', label: '我的', icon: User }
-]
+] as const)
 
 async function hydrate() {
   restoreSession()
@@ -72,16 +97,40 @@ async function hydrate() {
   loading.value = false
 }
 
-async function jumpToSection(id: string) {
-  if (route.path !== '/') {
-    await router.push('/')
-    requestAnimationFrame(() => {
-      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    })
+type DesktopNavKey = (typeof desktopNavItems.value)[number]['key']
+
+async function handleDesktopNav(key: DesktopNavKey) {
+  if (key === 'home') {
+    if (route.path !== '/') {
+      await router.push('/')
+    } else {
+      document.getElementById('top')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
     return
   }
 
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  if (key === 'services') {
+    await router.push('/services')
+    return
+  }
+
+  if (key === 'orders') {
+    if (!isAuthenticated.value) {
+      openAuth()
+      return
+    }
+    await router.push(currentRole.value === 'owner' ? '/my-orders' : '/orders?entry=take')
+    return
+  }
+
+  await router.push('/community')
+}
+
+function navItemActive(key: DesktopNavKey) {
+  if (key === 'home') return route.path === '/'
+  if (key === 'services') return route.path === '/services'
+  if (key === 'orders') return route.path === '/my-orders' || route.path === '/orders'
+  return route.path === '/community'
 }
 
 function openAuth() {
@@ -95,10 +144,14 @@ function openAuth() {
 }
 
 async function chooseRole(role: 'owner' | 'sitter') {
+  const intent = roleDialogIntent.value
   roleDialogIntent.value = null
   roleDialogVisible.value = false
-  const redirect = role === 'owner' ? '/orders?entry=publish' : '/orders?entry=take'
-  await router.push(`/auth?role=${role}&redirect=${encodeURIComponent(redirect)}`)
+  reopenSupportAfterLogin.value = intent === 'support'
+  openAuthDialog({
+    role,
+    redirect: route.fullPath
+  })
 }
 
 function supportTime(message: SupportMessage) {
@@ -118,12 +171,14 @@ async function scrollSupportToBottom() {
 async function loadSupportMessages() {
   if (!isAuthenticated.value || !currentUser.value) {
     supportMessages.value = []
+    unreadSupport.value = false
     return
   }
 
   supportLoading.value = true
   try {
     supportMessages.value = await api.fetchSupportMessages()
+    unreadSupport.value = !supportVisible.value && supportMessages.value.some((item) => item.sender === 'support')
     await scrollSupportToBottom()
   } finally {
     supportLoading.value = false
@@ -169,6 +224,7 @@ async function toggleSupport() {
   }
 
   supportVisible.value = true
+  unreadSupport.value = false
   await loadSupportMessages()
 }
 
@@ -183,6 +239,7 @@ async function sendSupportMessage() {
   try {
     supportMessages.value = await api.sendSupportMessage(content, guestSupportSessionId.value || undefined)
     supportForm.content = ''
+    unreadSupport.value = false
     await scrollSupportToBottom()
     ElMessage.success('消息已发送。')
   } finally {
@@ -202,9 +259,89 @@ async function handleRoleDialogClosed() {
 async function logout() {
   clearSession()
   supportVisible.value = false
+  unreadSupport.value = false
+  profileMenuVisible.value = false
   resetTransientSupportState()
   ElMessage.success('已退出登录')
   await router.push('/')
+}
+
+function openCitySwitcher() {
+  ElMessage.info('切换城市功能演示中，当前定位为上海。')
+}
+
+async function openProfileCenter() {
+  profileMenuVisible.value = false
+  await router.push('/profile')
+}
+
+async function switchUserRole() {
+  if (!isAuthenticated.value || !currentUser.value) return
+
+  try {
+    const nextRole = currentRole.value === 'owner' ? 'sitter' : 'owner'
+    const user = await api.switchRole(nextRole)
+    setCurrentUser(user)
+    profileMenuVisible.value = false
+    ElMessage.success(nextRole === 'owner' ? '已切换为宠物主人' : '已切换为兼职铲屎官')
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '切换身份失败，请稍后重试。')
+  }
+}
+
+async function handleAuthSuccess() {
+  closeAuthDialog()
+  const redirect = authDialogRedirect.value
+
+  if (redirect && redirect !== route.fullPath) {
+    await router.push(redirect)
+  }
+
+  if (reopenSupportAfterLogin.value) {
+    reopenSupportAfterLogin.value = false
+    supportVisible.value = true
+    await loadSupportMessages()
+  }
+}
+
+function handleAuthClose() {
+  reopenSupportAfterLogin.value = false
+  closeAuthDialog()
+}
+
+async function openFooterLink(label: string) {
+  if (label === '了解我们') {
+    if (route.path !== '/about') {
+      await router.push('/about')
+    } else {
+      document.getElementById('top')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    return
+  }
+
+  if (label === '服务说明') {
+    if (route.path !== '/service-guide') {
+      await router.push('/service-guide')
+    } else {
+      document.getElementById('top')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    return
+  }
+
+  if (label === '城市覆盖') {
+    if (route.path !== '/city-coverage') {
+      await router.push('/city-coverage')
+    } else {
+      document.getElementById('top')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    return
+  }
+
+  if (label === '常见问题' || label === '在线反馈') {
+    void toggleSupport()
+    return
+  }
+  ElMessage.info(`${label}内容正在完善中。`)
 }
 
 watch(
@@ -220,6 +357,7 @@ watch(
 
     resetTransientSupportState()
     supportVisible.value = false
+    unreadSupport.value = false
   }
 )
 
@@ -231,42 +369,126 @@ onMounted(() => {
 <template>
   <div class="app-shell">
     <header class="shell-header shell-header-landing">
-      <RouterLink to="/" class="shell-brand shell-brand-link">
-        <span class="brand-mark brand-mark-image">
-          <img :src="brandImage" alt="宠友邻品牌图标" />
-        </span>
-        <div>
-          <h1>宠友邻</h1>
-          <p class="brand-subtitle">邻里养宠互助社区</p>
-        </div>
-      </RouterLink>
-
-      <nav class="shell-nav-inline">
-        <button v-for="item in desktopSections" :key="item.id" class="nav-inline-item" type="button" @click="jumpToSection(item.id)">
-          {{ item.label }}
-        </button>
-      </nav>
-
-      <div class="header-actions landing-actions">
-        <div class="header-utility-pill">
-          <el-icon><Position /></el-icon>
-          <span>上海</span>
-        </div>
-        <div class="header-mode-pill">{{ modeLabel }}</div>
-        <RouterLink v-if="isAuthenticated && currentUser" to="/profile" class="header-profile-link">
-          <span>{{ currentUser.username }}</span>
+      <div class="shell-header-inner">
+        <RouterLink to="/" class="shell-brand shell-brand-link">
+          <span class="brand-mark brand-mark-image">
+            <img :src="brandImage" alt="宠友邻品牌图标" />
+          </span>
+          <div>
+            <h1>宠友邻</h1>
+            <p class="brand-subtitle">邻里养宠互助社区</p>
+          </div>
         </RouterLink>
-        <el-button v-if="isAuthenticated" round class="header-ghost-button" @click="logout">
-          <el-icon><SwitchButton /></el-icon>
-          退出
-        </el-button>
-        <el-button type="primary" round @click="openAuth">{{ authButtonLabel }}</el-button>
+
+        <nav class="shell-nav-inline">
+          <button
+            v-for="item in desktopNavItems"
+            :key="item.key"
+            class="nav-inline-item"
+            :class="{ active: navItemActive(item.key) }"
+            type="button"
+            @click="handleDesktopNav(item.key)"
+          >
+            {{ item.label }}
+          </button>
+        </nav>
+
+        <div class="header-actions landing-actions">
+          <button type="button" class="header-city-button" @click="openCitySwitcher">
+            <el-icon><Position /></el-icon>
+            <span>切换城市</span>
+          </button>
+
+          <button v-if="!isAuthenticated" type="button" class="header-login-button" @click="openAuth">{{ authButtonLabel }}</button>
+
+          <template v-else>
+            <button type="button" class="header-notice-button" @click="toggleSupport">
+              <el-icon><Bell /></el-icon>
+              <span v-if="unreadSupport" class="header-notice-dot"></span>
+            </button>
+
+            <el-popover
+              v-model:visible="profileMenuVisible"
+              trigger="click"
+              placement="bottom-end"
+              :width="236"
+              popper-class="header-profile-popper"
+            >
+              <template #reference>
+                <button type="button" class="header-avatar-button" aria-label="打开个人菜单">
+                  <img :src="currentUser?.avatar" :alt="currentUser?.username ?? '用户头像'" />
+                </button>
+              </template>
+
+              <div v-if="currentUser" class="header-profile-menu">
+                <div class="header-profile-menu-head">
+                  <img :src="currentUser.avatar" :alt="currentUser.username" />
+                  <div>
+                    <strong>{{ currentUser.username }}</strong>
+                    <span>当前身份：{{ headerRoleLabel }}</span>
+                  </div>
+                </div>
+
+                <button type="button" class="header-profile-menu-item accent" @click="switchUserRole">
+                  <el-icon><RefreshRight /></el-icon>
+                  <span>{{ switchRoleLabel }}</span>
+                </button>
+                <button type="button" class="header-profile-menu-item" @click="openProfileCenter">
+                  <el-icon><User /></el-icon>
+                  <span>个人中心</span>
+                </button>
+                <button type="button" class="header-profile-menu-item danger" @click="logout">
+                  <el-icon><SwitchButton /></el-icon>
+                  <span>退出登录</span>
+                </button>
+              </div>
+            </el-popover>
+          </template>
+        </div>
       </div>
     </header>
 
     <main class="shell-main" v-loading="loading">
-      <RouterView />
+      <div class="shell-main-inner">
+        <RouterView />
+      </div>
     </main>
+
+    <footer v-if="route.path !== '/auth'" class="site-footer">
+      <div class="site-footer-inner">
+        <div class="site-footer-panel">
+          <section class="site-footer-brand">
+            <div class="site-footer-brand-head">
+              <span class="brand-mark brand-mark-image footer-brand-image">
+                <img :src="brandImage" alt="宠友邻品牌图标" />
+              </span>
+              <div>
+                <strong>宠友邻</strong>
+                <span>邻里宠物互助社区</span>
+              </div>
+            </div>
+            <p>让爱从不缺席。同城宠物互助平台，随时随地连接身边热爱动物的善良邻里。</p>
+          </section>
+
+          <section class="site-footer-links">
+            <article v-for="group in footerGroups.slice(1)" :key="group.key" class="site-footer-group">
+              <h3>{{ group.title }}</h3>
+              <button
+                v-for="link in group.links"
+                :key="link"
+                type="button"
+                class="site-footer-link"
+                @click="openFooterLink(link)"
+              >
+                {{ link }}
+              </button>
+            </article>
+          </section>
+        </div>
+
+        <div class="site-footer-bottom">© 2026 PetNeighbor 宠友邻. All rights reserved.</div>
+      </div>
+    </footer>
 
     <footer class="mobile-bottom-nav">
       <RouterLink v-for="item in mobileNavItems" :key="item.path" :to="item.path" class="mobile-nav-item" :class="{ active: route.path === item.path }">
@@ -352,5 +574,12 @@ onMounted(() => {
         </button>
       </div>
     </el-dialog>
+
+    <AuthDialog
+      v-if="authDialogVisible"
+      :role="authDialogRole"
+      @close="handleAuthClose"
+      @success="handleAuthSuccess"
+    />
   </div>
 </template>

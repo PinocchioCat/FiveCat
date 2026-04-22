@@ -29,7 +29,25 @@ export interface PetItem {
   gender: 'male' | 'female' | 'unknown'
   breed: string
   age: number
+  weight_kg?: number | null
   specialty: string
+  habits?: string | null
+  emergency_phone?: string | null
+  photos: string[]
+}
+
+export interface CreatePetPayload {
+  user_id: number
+  name: string
+  type: 'dog' | 'cat' | 'other'
+  species: string
+  gender: 'male' | 'female' | 'unknown'
+  breed: string
+  age: number
+  weight_kg?: number | null
+  specialty: string
+  habits?: string | null
+  emergency_phone?: string | null
   photos: string[]
 }
 
@@ -153,6 +171,13 @@ export interface PostItem {
   tags: string[]
   created_at: string
   author: PostAuthor
+}
+
+export interface CreatePostPayload {
+  user_id: number
+  content: string
+  media_urls: string[]
+  tags: string[]
 }
 
 export interface HomeOverview {

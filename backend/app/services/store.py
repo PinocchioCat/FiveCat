@@ -1,13 +1,18 @@
 ﻿from __future__ import annotations
 
+import asyncio
+import json
+import logging
 from copy import deepcopy
 from datetime import datetime, timedelta
 from uuid import uuid4
 
+from app.core.config import get_settings
 from app.data.mock_data import deep_seed
 from app.services.geo import haversine_distance_km
 from app.services.order_rules import calculate_order_pricing, payment_deadline
 
+logger = logging.getLogger(__name__)
 SUPPORT_DEFAULT_MESSAGE = '\n'.join(
     [
         '您好！，家里的毛孩子是需要什么样的服务？',
@@ -41,6 +46,119 @@ class MockStore:
             user = self._data['users'][0]
             user['role'] = role
         return user
+
+    def _postgres_dsn(self) -> str:
+        return get_settings().postgres_dsn.replace('postgresql+asyncpg://', 'postgresql://', 1)
+
+    def _persist_pet_to_database(self, pet: dict, user: dict) -> None:
+        try:
+            asyncio.run(self._persist_pet_to_database_async(pet, user))
+        except Exception as error:
+            logger.warning('Pet database persistence skipped: %s', error)
+
+    async def _persist_pet_to_database_async(self, pet: dict, user: dict) -> None:
+        import asyncpg
+
+        connection = await asyncpg.connect(self._postgres_dsn(), timeout=1.5)
+        try:
+            await connection.execute(
+                """
+                ALTER TABLE pets ADD COLUMN IF NOT EXISTS species VARCHAR(30) NOT NULL DEFAULT '其他';
+                ALTER TABLE pets ADD COLUMN IF NOT EXISTS gender VARCHAR(20) NOT NULL DEFAULT 'unknown';
+                ALTER TABLE pets ADD COLUMN IF NOT EXISTS weight_kg NUMERIC(5, 2);
+                ALTER TABLE pets ADD COLUMN IF NOT EXISTS specialty TEXT;
+                ALTER TABLE pets ADD COLUMN IF NOT EXISTS habits TEXT;
+                ALTER TABLE pets ADD COLUMN IF NOT EXISTS emergency_phone VARCHAR(20);
+                """
+            )
+            await connection.execute(
+                """
+                INSERT INTO users (
+                    id,
+                    username,
+                    role,
+                    avatar,
+                    bio,
+                    phone,
+                    location,
+                    rating,
+                    completed_orders
+                )
+                VALUES (
+                    $1,
+                    $2,
+                    $3,
+                    $4,
+                    $5,
+                    $6,
+                    ST_SetSRID(ST_MakePoint($7, $8), 4326)::geography,
+                    $9,
+                    $10
+                )
+                ON CONFLICT (id) DO NOTHING
+                """,
+                user['id'],
+                user['username'],
+                user['role'],
+                user.get('avatar'),
+                user.get('bio'),
+                user.get('phone'),
+                user['longitude'],
+                user['latitude'],
+                user.get('rating', 5.0),
+                user.get('completed_orders', 0),
+            )
+            await connection.execute(
+                """
+                INSERT INTO pets (
+                    id,
+                    user_id,
+                    name,
+                    type,
+                    species,
+                    gender,
+                    breed,
+                    age,
+                    weight_kg,
+                    specialty,
+                    habits,
+                    emergency_phone,
+                    photos
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb)
+                ON CONFLICT (id) DO UPDATE SET
+                    user_id = EXCLUDED.user_id,
+                    name = EXCLUDED.name,
+                    type = EXCLUDED.type,
+                    species = EXCLUDED.species,
+                    gender = EXCLUDED.gender,
+                    breed = EXCLUDED.breed,
+                    age = EXCLUDED.age,
+                    weight_kg = EXCLUDED.weight_kg,
+                    specialty = EXCLUDED.specialty,
+                    habits = EXCLUDED.habits,
+                    emergency_phone = EXCLUDED.emergency_phone,
+                    photos = EXCLUDED.photos
+                """,
+                pet['id'],
+                pet['user_id'],
+                pet['name'],
+                pet['type'],
+                pet['species'],
+                pet['gender'],
+                pet['breed'],
+                pet['age'],
+                pet.get('weight_kg'),
+                pet['specialty'],
+                pet.get('habits'),
+                pet.get('emergency_phone'),
+                json.dumps(pet.get('photos') or [], ensure_ascii=False),
+            )
+            await connection.execute(
+                "SELECT setval(pg_get_serial_sequence('pets', 'id'), GREATEST((SELECT COALESCE(MAX(id), 1) FROM pets), 1), true)"
+            )
+        finally:
+            await connection.close()
 
     def _serialize_user(self, user: dict) -> dict:
         return {
@@ -249,6 +367,27 @@ class MockStore:
     def list_pets(self, user_id: int = 1) -> list[dict]:
         return [deepcopy(pet) for pet in self._data['pets'] if pet['user_id'] == user_id]
 
+    def create_pet(self, payload: dict) -> dict:
+        user = self._find_user(payload['user_id'])
+        pet = {
+            'id': max([0, *(item['id'] for item in self._data['pets'])]) + 1,
+            'user_id': payload['user_id'],
+            'name': payload['name'],
+            'type': payload['type'],
+            'species': payload['species'],
+            'gender': payload['gender'],
+            'breed': payload['breed'],
+            'age': payload['age'],
+            'weight_kg': payload.get('weight_kg'),
+            'specialty': payload['specialty'],
+            'habits': payload.get('habits'),
+            'emergency_phone': payload.get('emergency_phone'),
+            'photos': payload.get('photos') or [],
+        }
+        self._data['pets'].append(pet)
+        self._persist_pet_to_database(pet, user)
+        return deepcopy(pet)
+
     def create_temporary_support_session(self) -> dict:
         session_id = f'guest-{uuid4().hex}'
         messages = self._ensure_temporary_support_session(session_id)
@@ -300,11 +439,12 @@ class MockStore:
         return self.list_support_messages(user_id=resolved_user_id)
 
     def list_posts(self) -> list[dict]:
-        return [self._serialize_post(post) for post in sorted(self._data['posts'], key=lambda item: item['created_at'], reverse=True)]
+        active_posts = [post for post in self._data['posts'] if not post.get('deleted_at')]
+        return [self._serialize_post(post) for post in sorted(active_posts, key=lambda item: item['created_at'], reverse=True)]
 
     def create_post(self, payload: dict) -> dict:
         post = {
-            'id': max(item['id'] for item in self._data['posts']) + 1,
+            'id': max([0, *(item['id'] for item in self._data['posts'])]) + 1,
             'user_id': payload['user_id'],
             'content': payload['content'],
             'media_urls': payload.get('media_urls', []),
@@ -313,6 +453,17 @@ class MockStore:
             'created_at': datetime.now().isoformat(),
         }
         self._data['posts'].insert(0, post)
+        return self._serialize_post(post)
+
+    def delete_post(self, post_id: int, user_id: int) -> dict:
+        post = next((item for item in self._data['posts'] if item['id'] == post_id), None)
+        if post is None or post.get('deleted_at'):
+            raise ValueError(f'Post {post_id} not found')
+        if post['user_id'] != user_id:
+            raise ValueError('Only the author can delete this post')
+
+        post['deleted_at'] = datetime.now().isoformat()
+        post['deleted_by'] = user_id
         return self._serialize_post(post)
 
     def nearby_orders(self, latitude: float, longitude: float, radius_km: float) -> list[dict]:
@@ -471,7 +622,7 @@ class MockStore:
         stats = {
             'active_sitters': len([item for item in self._data['users'] if item['role'] == 'sitter']),
             'pending_orders': len([item for item in self._data['orders'] if item['status'] == 'pending']),
-            'community_posts': len(self._data['posts']),
+            'community_posts': len([item for item in self._data['posts'] if not item.get('deleted_at')]),
             'completed_orders': sum(item.get('completed_orders', 0) for item in self._data['users']),
         }
         return {

@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 560" role="img" aria-labelledby="title desc">
+  <title id="title">Shanghai skyline illustration</title>
+  <desc id="desc">A calm riverside skyline inspired by Shanghai landmarks.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#7fb5ef"/>
+      <stop offset="0.52" stop-color="#d7e9ff"/>
+      <stop offset="1" stop-color="#f8fbff"/>
+    </linearGradient>
+    <linearGradient id="river" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#477eb4"/>
+      <stop offset="1" stop-color="#8fb9df"/>
+    </linearGradient>
+    <linearGradient id="tower" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#f07b86"/>
+      <stop offset="1" stop-color="#8c64a8"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#16345d" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <rect width="960" height="560" fill="url(#sky)"/>
+  <circle cx="145" cy="96" r="42" fill="#fff8dc" opacity="0.78"/>
+  <path d="M0 332 C126 292 204 320 328 286 C468 248 594 296 704 260 C804 228 890 236 960 204 L960 560 L0 560 Z" fill="#cfe5fa" opacity="0.55"/>
+  <path d="M0 356 C120 318 230 342 360 306 C474 274 572 318 684 292 C784 270 874 284 960 248 L960 560 L0 560 Z" fill="#adcbe8" opacity="0.6"/>
+  <g filter="url(#softShadow)">
+    <rect x="94" y="274" width="74" height="134" rx="5" fill="#315a83"/>
+    <rect x="188" y="236" width="82" height="172" rx="4" fill="#294b74"/>
+    <rect x="288" y="180" width="54" height="228" rx="4" fill="#24436c"/>
+    <path d="M434 104 L448 104 L456 242 L426 242 Z" fill="#213b63"/>
+    <circle cx="441" cy="198" r="46" fill="url(#tower)"/>
+    <circle cx="441" cy="198" r="30" fill="#d94f73" opacity="0.72"/>
+    <rect x="432" y="242" width="18" height="166" fill="#213b63"/>
+    <circle cx="441" cy="306" r="28" fill="#f38b72"/>
+    <rect x="520" y="214" width="88" height="194" rx="6" fill="#1d3965"/>
+    <rect x="632" y="132" width="96" height="276" rx="7" fill="#264f82"/>
+    <path d="M766 120 L834 120 L850 408 L748 408 Z" fill="#18335f"/>
+    <path d="M800 68 L832 120 L766 120 Z" fill="#18335f"/>
+  </g>
+  <g opacity="0.38">
+    <rect x="113" y="294" width="12" height="12" fill="#d9eefc"/>
+    <rect x="139" y="294" width="12" height="12" fill="#d9eefc"/>
+    <rect x="210" y="262" width="12" height="12" fill="#d9eefc"/>
+    <rect x="236" y="262" width="12" height="12" fill="#d9eefc"/>
+    <rect x="305" y="210" width="12" height="12" fill="#d9eefc"/>
+    <rect x="546" y="244" width="12" height="12" fill="#d9eefc"/>
+    <rect x="572" y="244" width="12" height="12" fill="#d9eefc"/>
+    <rect x="660" y="164" width="12" height="12" fill="#d9eefc"/>
+    <rect x="692" y="164" width="12" height="12" fill="#d9eefc"/>
+    <rect x="786" y="154" width="12" height="12" fill="#d9eefc"/>
+    <rect x="818" y="154" width="12" height="12" fill="#d9eefc"/>
+  </g>
+  <rect y="408" width="960" height="152" fill="url(#river)"/>
+  <path d="M0 438 C110 420 208 454 326 436 C462 416 548 452 684 428 C790 410 864 428 960 410" fill="none" stroke="#f6fbff" stroke-width="8" opacity="0.5"/>
+  <path d="M0 488 C122 466 230 500 356 480 C504 456 608 496 752 466 C838 448 902 462 960 452" fill="none" stroke="#f6fbff" stroke-width="7" opacity="0.38"/>
+  <path d="M0 406 L960 406" stroke="#19395f" stroke-width="6" opacity="0.28"/>
+</svg>

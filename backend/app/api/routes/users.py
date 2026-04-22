@@ -1,7 +1,7 @@
 ﻿from fastapi import APIRouter
 
 from app.schemas.common import ApiMessage
-from app.schemas.users import PetItem, RoleSwitchRequest, UpdateLocationRequest, UserProfile
+from app.schemas.users import CreatePetRequest, PetItem, RoleSwitchRequest, UpdateLocationRequest, UserProfile
 from app.services.store import store
 
 router = APIRouter()
@@ -25,6 +25,11 @@ def update_location(payload: UpdateLocationRequest, user_id: int = 1) -> UserPro
 @router.get("/me/pets", response_model=list[PetItem])
 def list_my_pets(user_id: int = 1) -> list[PetItem]:
     return store.list_pets(user_id)
+
+
+@router.post("/me/pets", response_model=PetItem)
+def create_my_pet(payload: CreatePetRequest, user_id: int = 1) -> PetItem:
+    return store.create_pet({**payload.model_dump(), "user_id": user_id})
 
 
 @router.post("/send-code", response_model=ApiMessage)

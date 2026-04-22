@@ -1,4 +1,6 @@
 import type {
+  CreatePetPayload,
+  CreatePostPayload,
   CreateOrderPayload,
   HomeOverview,
   LoginResponse,
@@ -236,6 +238,17 @@ export const api = {
     withFallback(() => requestJson(`/users/me?user_id=${currentUserId()}`), mock.fetchMe),
   fetchPets: (): Promise<PetItem[]> =>
     withFallback(() => requestJson(`/users/me/pets?user_id=${currentUserId()}`), mock.fetchPets),
+  createPet: (payload: CreatePetPayload): Promise<PetItem> =>
+    requestJson(`/users/me/pets?user_id=${currentUserId()}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        ...payload,
+        user_id: currentUserId(),
+        weight_kg: payload.weight_kg ?? null,
+        habits: payload.habits ?? null,
+        emergency_phone: payload.emergency_phone ?? null
+      })
+    }),
   switchRole: (role: 'owner' | 'sitter'): Promise<UserProfile> =>
     withFallback(
       () => requestJson(`/users/me/role?user_id=${currentUserId()}`, { method: 'PATCH', body: JSON.stringify({ role }) }),
@@ -371,10 +384,28 @@ export const api = {
       () => mock.sendSupportMessage(content, guestSessionId)
     ),
   fetchPosts: (): Promise<PostItem[]> => withFallback(() => requestJson('/posts'), mock.fetchPosts),
-  createPost: (content: string, tags: string[]): Promise<PostItem> =>
+  createPost: (payload: CreatePostPayload): Promise<PostItem> =>
     withFallback(
-      () => requestJson('/posts', { method: 'POST', body: JSON.stringify({ user_id: currentUserId(), content, tags }) }),
-      () => mock.createPost(content, tags)
+      () =>
+        requestJson('/posts', {
+          method: 'POST',
+          body: JSON.stringify({
+            user_id: payload.user_id ?? currentUserId(),
+            content: payload.content,
+            media_urls: payload.media_urls,
+            tags: payload.tags
+          })
+        }),
+      () =>
+        mock.createPost({
+          ...payload,
+          user_id: payload.user_id ?? currentUserId()
+        })
+    ),
+  deletePost: (postId: number): Promise<PostItem> =>
+    withFallback(
+      () => requestJson(`/posts/${postId}?user_id=${currentUserId()}`, { method: 'DELETE' }),
+      () => mock.deletePost(postId, currentUserId())
     ),
   loginPhone: (phone: string, code: string, role: 'owner' | 'sitter'): Promise<LoginResponse> =>
     withFallback(

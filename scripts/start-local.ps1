@@ -23,7 +23,50 @@ function Ensure-EnvFile {
 
 function Get-Listener {
   param([int]$Port)
-  Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+  $getNetTcpConnection = Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue
+  if ($null -ne $getNetTcpConnection) {
+    return Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+  }
+
+  $netstatLine = netstat -ano -p tcp | Select-String -Pattern "^\s*TCP\s+\S+:$Port\s+\S+\s+LISTENING\s+(\d+)\s*$" | Select-Object -First 1
+  if ($null -eq $netstatLine) {
+    return $null
+  }
+
+  $owningProcess = [int]$netstatLine.Matches[0].Groups[1].Value
+  [pscustomobject]@{
+    LocalPort = $Port
+    OwningProcess = $owningProcess
+  }
+}
+
+function Start-Infrastructure {
+  $docker = Get-Command docker -ErrorAction SilentlyContinue
+  if ($null -eq $docker) {
+    throw '未检测到 Docker，无法启动 PostgreSQL / Redis 基础设施。'
+  }
+
+  $composeArgs = @('compose', 'version')
+  $supportsDockerComposeSubcommand = $false
+
+  try {
+    & $docker.Source @composeArgs *> $null
+    $supportsDockerComposeSubcommand = $LASTEXITCODE -eq 0
+  } catch {
+    $supportsDockerComposeSubcommand = $false
+  }
+
+  if ($supportsDockerComposeSubcommand) {
+    & $docker.Source 'compose' 'up' '-d'
+    return
+  }
+
+  $dockerCompose = Get-Command docker-compose -ErrorAction SilentlyContinue
+  if ($null -eq $dockerCompose) {
+    throw '检测到 Docker 但未找到可用的 Compose 命令（docker compose / docker-compose）。'
+  }
+
+  & $dockerCompose.Source 'up' '-d'
 }
 
 function Ensure-PortAvailable {
@@ -117,14 +160,9 @@ if (-not (Test-Path -LiteralPath (Join-Path $frontendDir 'node_modules'))) {
 }
 
 if ($WithInfra) {
-  $docker = Get-Command docker -ErrorAction SilentlyContinue
-  if ($null -eq $docker) {
-    throw '未检测到 Docker，无法启动 PostgreSQL / Redis 基础设施。'
-  }
-
   Push-Location $repoRoot
   try {
-    docker compose up -d
+    Start-Infrastructure
   } finally {
     Pop-Location
   }

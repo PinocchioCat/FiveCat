@@ -7,6 +7,7 @@ import { api } from '../api/client'
 import AmapPicker from '../components/AmapPicker.vue'
 import OrderCard from '../components/OrderCard.vue'
 import SectionHeader from '../components/SectionHeader.vue'
+import { openAuthDialog } from '../store/auth-dialog'
 import { currentRole, currentUser, isAuthenticated, pets } from '../store/session'
 import type { GeoPoint, OrderItem } from '../types/app'
 import {
@@ -32,6 +33,7 @@ const orders = ref<OrderItem[]>([])
 const submitting = ref(false)
 const nowTick = ref(Date.now())
 const timer = ref<number | null>(null)
+const sitterRecordStatus = ref('in_progress')
 const petSpeciesOptions = ['外国猫', '中华田园猫', '大型犬', '小型犬', '茶杯犬', '中华田园犬', '鼠类', '兔子', '爬行类', '其他']
 
 const defaultStart = nextHalfHour()
@@ -88,6 +90,70 @@ const sitterHistoryOrders = computed(() => {
 const nearbyOrders = computed(() => orders.value.filter((order) => order.status === 'pending'))
 const showSpeciesOther = computed(() => form.pet_species === '其他')
 const showVaccinationNotes = computed(() => form.vaccination_status === '未齐全')
+
+const sitterRecordTabs = [
+  { key: 'pending_service', label: '待服务' },
+  { key: 'in_progress', label: '进行中' },
+  { key: 'completed', label: '已完成' },
+  { key: 'cancelled', label: '已取消' }
+] as const
+
+const sitterRecordItems = [
+  {
+    id: 1,
+    status: 'in_progress',
+    statusLabel: '进行中',
+    statusTone: 'orange',
+    serviceType: '代遛狗',
+    petName: '豆豆（金毛）',
+    address: '朝阳区阳光小区3栋',
+    serviceTime: '今天 18:00 - 19:00',
+    reward: '35.00',
+    phone: '138****5678',
+    primaryAction: '开始服务（打卡）',
+    primaryTone: 'orange',
+    image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=240&q=80'
+  },
+  {
+    id: 2,
+    status: 'pending_service',
+    statusLabel: '待服务',
+    statusTone: 'blue',
+    serviceType: '上门喂养',
+    petName: '汤圆（蓝猫）',
+    address: '海淀区清华东路8号院',
+    serviceTime: '明天 10:00 - 11:00',
+    reward: '45.00',
+    phone: '139****1234',
+    primaryAction: '准备出发',
+    primaryTone: 'navy',
+    image: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?auto=format&fit=crop&w=240&q=80'
+  },
+  {
+    id: 3,
+    status: 'in_progress',
+    statusLabel: '进行中',
+    statusTone: 'orange',
+    serviceType: '代遛狗',
+    petName: '麦片（柯基）',
+    address: '朝阳区百子湾路1号',
+    serviceTime: '今天 20:00 - 21:00',
+    reward: '25.00',
+    phone: '137****8899',
+    primaryAction: '开始服务（打卡）',
+    primaryTone: 'orange',
+    image: 'https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=240&q=80'
+  }
+]
+
+const visibleSitterRecordItems = computed(() => {
+  if (sitterRecordStatus.value === 'in_progress') {
+    return sitterRecordItems.filter((item) => item.status === 'in_progress' || item.status === 'pending_service')
+  }
+  return sitterRecordItems.filter((item) => item.status === sitterRecordStatus.value)
+})
+
+const isSitterRecordPage = computed(() => preferredEntry.value === 'take' && currentRole.value === 'sitter')
 
 const estimatedDistanceKm = computed(() => {
   if (!currentUser.value) return 0
@@ -356,6 +422,21 @@ function switchEntry(entry: 'publish' | 'take') {
   void router.replace({ path: '/orders', query: { entry } })
 }
 
+function handleSitterRecordAction(action: string) {
+  ElMessage.success(`${action}入口已准备。`)
+}
+
+function openRecordNavigation() {
+  ElMessage.info('导航功能演示中。')
+}
+
+function openLoginDialog() {
+  openAuthDialog({
+    role: preferredEntry.value === 'publish' ? 'owner' : 'sitter',
+    redirect: route.fullPath
+  })
+}
+
 onMounted(() => {
   void loadOrders()
   timer.value = window.setInterval(() => {
@@ -376,11 +457,11 @@ onUnmounted(() => {
   <div v-if="!isAuthenticated" class="empty-state-card">
     <h2>请先登录后再进入订单大厅</h2>
     <p>登录后可以按身份进入发单或接单入口，继续完成本地体验闭环。</p>
-    <el-button type="primary" round @click="$router.push('/auth')">前往登录</el-button>
+    <el-button type="primary" round @click="openLoginDialog">前往登录</el-button>
   </div>
 
   <div v-else class="orders-shell">
-    <section class="orders-entry-switch">
+    <section v-if="!isSitterRecordPage" class="orders-entry-switch">
       <div>
         <h2>{{ entryCopy.current }}</h2>
         <p>{{ entryCopy.description }}</p>
@@ -395,7 +476,84 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <div v-if="preferredEntry === 'publish'" class="orders-grid">
+    <div v-if="isSitterRecordPage" class="sitter-record-page">
+      <section class="sitter-record-hero">
+        <div>
+          <h1>接单记录</h1>
+          <p>查看并管理您的服务任务</p>
+        </div>
+
+        <div class="sitter-record-summary">
+          <div>
+            <span>本月预计收入</span>
+            <strong>¥ 1,250</strong>
+          </div>
+          <div>
+            <span>完成单量</span>
+            <strong>28 单</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="sitter-record-tabs">
+        <button
+          v-for="tab in sitterRecordTabs"
+          :key="tab.key"
+          type="button"
+          class="sitter-record-tab"
+          :class="{ active: sitterRecordStatus === tab.key }"
+          @click="sitterRecordStatus = tab.key"
+        >
+          {{ tab.label }}
+        </button>
+      </section>
+
+      <section class="sitter-record-grid">
+        <article v-for="item in visibleSitterRecordItems" :key="item.id" class="sitter-record-card">
+          <span class="sitter-record-status" :class="item.statusTone">{{ item.statusLabel }}</span>
+
+          <div class="sitter-record-card-head">
+            <img :src="item.image" :alt="item.petName" />
+            <div>
+              <div class="sitter-record-title-row">
+                <span>{{ item.serviceType }}</span>
+                <h2>{{ item.petName }}</h2>
+              </div>
+              <p>{{ item.address }}</p>
+            </div>
+          </div>
+
+          <div class="sitter-record-info">
+            <div>
+              <span>服务时间</span>
+              <strong>{{ item.serviceTime }}</strong>
+            </div>
+            <div>
+              <span>预计报酬</span>
+              <strong class="price">¥ {{ item.reward }}</strong>
+            </div>
+            <div>
+              <span>宠主电话</span>
+              <strong>{{ item.phone }}</strong>
+            </div>
+          </div>
+
+          <div class="sitter-record-actions">
+            <button
+              type="button"
+              class="sitter-record-primary"
+              :class="item.primaryTone"
+              @click="handleSitterRecordAction(item.primaryAction)"
+            >
+              {{ item.primaryAction }}
+            </button>
+            <button type="button" class="sitter-record-nav" @click="openRecordNavigation">导航</button>
+          </div>
+        </article>
+      </section>
+    </div>
+
+    <div v-else-if="preferredEntry === 'publish'" class="orders-grid">
       <section>
         <SectionHeader
           eyebrow="Publish"

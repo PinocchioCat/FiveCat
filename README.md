@@ -1,128 +1,137 @@
-﻿# 宠友邻 PetNeighbor
+# 宠友邻 PetNeighbor
 
-宠友邻是一个面向同城宠主和兼职铲屎官的 Web 平台原型，核心围绕四件事展开：身份切换、地图发单、即时接单、宠物社区。
+宠友邻是一个面向同城宠物主人和兼职铲屎官的 Web MVP。当前项目重点覆盖：统一首页、登录与身份切换、宠物主人发单与订单管理、铲屎官任务大厅与接单记录、宠物档案、社区动态、在线客服。
 
 ## 技术栈
 
-- 前端：Vue 3 + Vite + Element Plus
-- 后端：Python 3.12 + FastAPI
-- 数据库：PostgreSQL + PostGIS
-- 缓存：Redis
-- 地图：高德地图 Web API
-- 媒体存储：阿里云 / 腾讯云 OSS
+- 前端：Vue 3 + TypeScript + Vite + Vue Router + Element Plus
+- 后端：Python 3.12 + FastAPI + Pydantic
+- 数据层：当前以 Mock Store / 前端 Mock fallback 为主，已提供 PostgreSQL + PostGIS 初始化脚本
+- 基础设施：Docker Compose 编排 PostgreSQL(PostGIS) 与 Redis
+- 地图：高德地图 Web API，可无 Key 降级展示
 
 ## 目录结构
 
 ```text
-petneighbor/
-├─ backend/                 FastAPI API、演示数据、PostGIS 初始化 SQL
-├─ frontend/                Vue 3 + Element Plus Web 应用
-├─ docs/                    产品和架构说明
+patFiveCat/
+├─ backend/                 FastAPI API、Schema、Mock Store、PostGIS SQL
+├─ frontend/                Vue 3 Web 应用
+├─ docs/                    产品、部署、数据库与当前系统文档
+├─ scripts/                 Windows 本地启动/停止/初始化脚本
 ├─ docker-compose.yml       PostgreSQL(PostGIS) + Redis 本地编排
 └─ README.md
 ```
 
-## 已实现的 MVP 范围
+## 当前已实现功能
 
-- 首页：品牌展示、平台指标、附近待接任务、社区精选
-- 登录：微信扫码登录占位流程、手机号验证码登录流程
-- 身份切换：宠主 / 兼职铲屎官一键切换
-- 发单大厅：订单表单、服务类型、时间、价格、经纬度取点、接单列表
-- 我的订单：宠物主人拥有独立的订单管理页，支持按 `全部 / 待付款 / 待确认 / 待评价 / 已完成 / 已取消 / 售后` 分类筛选，并支持搜索、支付、确认完成、申诉、退款、取消等操作
-- 社区：发布宠物动态、标签流、瀑布流展示
-- 个人中心：宠物档案、身份资料、服务表现；宠物主人与铲屎官展示内容按角色区分
-- 在线客服：右下角悬浮客服窗口保留完整会话入口，个人中心页不再重复展示聊天区
-- 后端接口：登录、首页概览、个人资料、宠物列表、订单、接单、社区动态
-- 数据设计：PostGIS 表结构初始化脚本
+- 首页：登录与未登录展示保持一致，包含品牌 Hero、服务类目、平台保障、附近待接任务预览、社区精选。
+- 登录注册：手机号验证码演示登录、微信扫码演示登录，支持宠物主人 / 铲屎官身份选择。
+- 身份切换：登录后可在顶部头像菜单切换“宠物主人 / 兼职铲屎官”。
+- 宠物主人：
+  - 找服务页面：发布需求表单、地图/半径演示、附近可接单铲屎官列表。
+  - 发单大厅：填写订单、服务时间、宠物信息、疫苗情况、地址取点，自动计价。
+  - 我的订单：按状态筛选、搜索、支付、确认完成、申诉、退款、取消。
+  - 个人中心：账户信息、宠物档案、常用工具。
+- 铲屎官：
+  - 任务大厅：任务筛选、任务列表、右侧任务详情，支持在线沟通与立即抢单演示。
+  - 接单记录：查看待服务 / 进行中 / 已完成 / 已取消任务，展示收入统计、订单卡片、打卡/出发/导航入口。
+  - 个人中心：服务表现、身份资料、工作台、最近评价。
+- 宠物档案：新增宠物，维护宠物基本资料、体重、习惯、照片等。
+- 社区：帖子瀑布流、话题筛选、发帖、图片上传预览、作者删除自己的帖子。
+- 在线客服：全局右下角浮窗；登录用户可同步历史消息，未登录用户可创建临时咨询会话。
+- 后端 API：认证、用户、宠物、订单状态流转、社区、客服、首页概览。
 
-## 最近更新
+## API 概览
 
-- 新增宠物主人专属的 `我的订单` 页面，采用更接近后台订单中心的布局，包含左侧导航、顶部搜索、订单概览卡片和分状态订单列表
-- 宠物主人模式下，个人中心不再展示评分卡片，`进入我的主页` 后的 `我的订单` 按钮会进入独立订单页，而不是发单大厅
-- 铲屎官模式仍保持原有 `订单大厅` 入口和接单流程，原有发单大厅页面保持不变
-- 客服默认欢迎语中的联系电话已统一更新为 `138xxxxxxx`
+后端默认前缀：`/api/v1`
+
+- `POST /auth/phone`：手机号验证码登录
+- `POST /auth/wechat`：微信扫码演示登录
+- `GET /home/overview`：首页聚合数据
+- `GET /users/me`：当前用户资料
+- `PATCH /users/me/role`：切换身份
+- `PATCH /users/me/location`：更新位置
+- `GET /users/me/pets` / `POST /users/me/pets`：宠物列表与新增宠物
+- `GET /orders`：订单列表
+- `GET /orders/nearby`：附近待接订单
+- `POST /orders`：发布订单
+- `POST /orders/{id}/pay`：支付
+- `POST /orders/{id}/accept`：接单
+- `POST /orders/{id}/start`：开始服务
+- `POST /orders/{id}/complete`：完成服务
+- `POST /orders/{id}/confirm`：宠物主人确认并评价
+- `POST /orders/{id}/appeal`：申诉
+- `POST /orders/{id}/refund`：退款
+- `POST /orders/{id}/cancel`：取消
+- `GET /posts` / `POST /posts` / `DELETE /posts/{id}`：社区帖子
+- `POST /support/temporary-session`：临时客服会话
+- `GET /support/messages` / `POST /support/messages`：客服消息
+
+更完整的接口和数据说明见 [当前系统完整功能、接口与数据库文档](docs/current-system-documentation.md)。
+
+## 数据库现状
+
+项目已提供 PostgreSQL + PostGIS 初始化 SQL，包含：
+
+- `users`
+- `pets`
+- `orders`
+- `posts`
+- `reviews`
+- `nearby_pending_orders` 视图
+
+当前默认运行仍以 Mock Store 为主，只有部分宠物新增逻辑会尝试写入 PostgreSQL 以演示持久化路径。真实生产化还需要补齐订单全字段、客服会话、订单宠物关联等表结构。详见 [数据库 ER 结构说明文档](docs/database-er-structure.md)。
 
 ## 本地启动
 
-### 首次准备
+### 1. 首次准备
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\setup-local.ps1
 ```
 
-### 一键启动推荐
+脚本会生成 `.env`，安装后端依赖，并安装前端依赖。
+
+### 2. 启动本地演示
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\start-local.ps1
 ```
 
-启动后默认访问：
+启动后访问：
 
-- 前端：`http://127.0.0.1:5174`
-- 后端：`http://127.0.0.1:8000`
+- 前端：`http://127.0.0.1:5174/`
+- 后端：`http://127.0.0.1:8000/`
+- Swagger：`http://127.0.0.1:8000/docs`
 
-当前体验建议路径：
-
-- 宠物主人：首页 -> 进入我的主页 -> 我的订单
-- 宠物主人发单：首页 / 个人中心 -> 发单大厅
-- 铲屎官：首页 -> 进入我的主页 -> 订单大厅
-
-脚本会自动完成以下事情：
-
-- 如果 `frontend/.env` 或 `backend/.env` 不存在，则自动从 `.env.example` 生成。
-- 启动 FastAPI 后端和 Vite 前端，并把日志写到 `.logs/`。
-- 在 `.logs/frontend.pid` 和 `.logs/backend.pid` 中记录进程号，方便关闭。
-
-停止服务：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\stop-local.ps1
-```
-
-如果你还希望同时拉起 PostgreSQL 和 Redis，可以执行：
+### 3. 可选启动数据库与 Redis
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\start-local.ps1 -WithInfra
 ```
 
-### 手动启动方式
+需要本机已安装并启动 Docker Desktop。
 
-#### 1. 启动基础设施
+### 4. 停止服务
 
-```bash
-docker compose up -d
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\stop-local.ps1
 ```
 
-#### 2. 启动后端
+## 推荐演示路径
 
-```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\activate
-pip install -e .
-copy .env.example .env
-uvicorn app.main:app --reload --port 8000
-```
+1. 打开首页，观察统一首页展示。
+2. 登录为宠物主人，进入“找服务”和“我的订单”，演示发单、支付、确认、申诉/退款。
+3. 切换为铲屎官，进入“任务大厅”，查看任务详情并抢单。
+4. 点击“接单记录”，查看进行中任务、收入统计和打卡入口。
+5. 进入个人中心，对比宠物主人与铲屎官不同展示。
+6. 打开右下角在线客服，演示登录/未登录咨询。
+7. 进入社区发布动态并删除自己的帖子。
 
-默认情况下 `USE_MOCK_DATA=true`，所以即使没有先接数据库，页面也能先跑演示闭环。
+## 当前边界与后续建议
 
-#### 3. 启动前端
-
-```bash
-cd frontend
-copy .env.example .env
-npm.cmd install
-npm.cmd run dev -- --host 127.0.0.1 --port 5174
-```
-
-如果要启用高德地图点击取点，请在 `frontend/.env` 中填写 `VITE_AMAP_KEY`。
-
-## 后续建议
-
-1. 接入真实微信开放平台扫码登录和短信验证码服务商。
-2. 使用 SQLAlchemy + Alembic 正式接 PostgreSQL/PostGIS，并把演示仓储替换为真实仓储层。
-3. 增加 Redis 附近任务缓存、订单状态锁、WebSocket 即时通知。
-4. 接入 OSS 上传服务，支持宠物照片、动态视频、服务凭证。
-5. 补齐评价、实名认证、违约申诉和支付闭环。
-
-
+- 登录、微信扫码、短信验证码、支付均为演示逻辑。
+- 默认数据存储为内存 Mock，刷新后由种子数据恢复。
+- Redis 容器已提供，但业务层尚未接入。
+- PostgreSQL/PostGIS 结构已具备基础骨架，但尚未完全覆盖当前前端功能。
+- 下一阶段建议优先做真实仓储层、鉴权、支付、客服持久化、订单状态锁和媒体上传。

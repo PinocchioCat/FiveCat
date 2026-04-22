@@ -25,6 +25,6 @@ class PostItem(BaseModel):
 
 class CreatePostRequest(BaseModel):
     user_id: int = 1
-    content: str = Field(..., min_length=3, max_length=500)
-    media_urls: list[str] = Field(default_factory=list)
-    tags: list[str] = Field(default_factory=list, max_length=5)
+    content: str = Field(..., min_length=1, max_length=500)
+    media_urls: list[str] = Field(default_factory=list, max_length=10)
+    tags: list[str] = Field(default_factory=list, max_length=10)

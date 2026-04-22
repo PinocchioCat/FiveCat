@@ -29,8 +29,14 @@ class Pet(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     name: Mapped[str] = mapped_column(String(30))
     type: Mapped[str] = mapped_column(String(20))
+    species: Mapped[str] = mapped_column(String(30))
+    gender: Mapped[str] = mapped_column(String(20))
     breed: Mapped[str | None] = mapped_column(String(50))
     age: Mapped[int | None] = mapped_column(Integer)
+    weight_kg: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    specialty: Mapped[str | None] = mapped_column(Text())
+    habits: Mapped[str | None] = mapped_column(Text())
+    emergency_phone: Mapped[str | None] = mapped_column(String(20))
     photos: Mapped[str | None] = mapped_column(Text())
 
 
@@ -59,8 +65,11 @@ class Post(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     content: Mapped[str] = mapped_column(Text())
     media_urls: Mapped[str | None] = mapped_column(Text())
+    tags: Mapped[str | None] = mapped_column(Text())
     like_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime)
+    deleted_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
 
 
 class Review(Base):

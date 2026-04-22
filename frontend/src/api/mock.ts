@@ -1,4 +1,6 @@
 import type {
+  CreatePetPayload,
+  CreatePostPayload,
   CreateOrderPayload,
   HomeOverview,
   LoginResponse,
@@ -57,7 +59,10 @@ const allPets: PetItem[] = [
     gender: 'male',
     breed: '英短蓝猫',
     age: 2,
+    weight_kg: 4.3,
     specialty: '会在饭点准时蹲点，熟悉自动喂食器。',
+    habits: '每天早晚各喂一次，喜欢逗猫棒，不喜欢被突然抱起。',
+    emergency_phone: '13800000001',
     photos: ['https://images.unsplash.com/photo-1519052537078-e6302a4968d4?auto=format&fit=crop&w=800&q=80']
   },
   {
@@ -69,7 +74,10 @@ const allPets: PetItem[] = [
     gender: 'female',
     breed: '柯基',
     age: 3,
+    weight_kg: 12.5,
     specialty: '擅长捡球，熟悉基础坐下与等待指令。',
+    habits: '每天晚饭后遛一次，不能吃鸡骨头，出门需要牵引。',
+    emergency_phone: '13800000001',
     photos: ['https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=800&q=80']
   },
   {
@@ -81,7 +89,10 @@ const allPets: PetItem[] = [
     gender: 'male',
     breed: '狸花猫',
     age: 1,
+    weight_kg: 3.8,
     specialty: '亲人不怕生，擅长陪玩逗猫棒和定点如厕。',
+    habits: '早晚少量多餐，猫砂盆需要每天清理。',
+    emergency_phone: '13800000002',
     photos: ['https://images.unsplash.com/photo-1511044568932-338cba0ad803?auto=format&fit=crop&w=800&q=80']
   },
   {
@@ -93,7 +104,10 @@ const allPets: PetItem[] = [
     gender: 'female',
     breed: '比熊',
     age: 4,
+    weight_kg: 6.2,
     specialty: '熟悉牵引外出流程，对洗护和吹毛非常配合。',
+    habits: '饭后半小时外出，不喜欢陌生狗突然靠近。',
+    emergency_phone: '13800000002',
     photos: ['https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=800&q=80']
   }
 ]
@@ -276,14 +290,19 @@ let supportMessages: SupportMessage[] = [
 
 let temporarySupportSessions: Record<string, SupportMessage[]> = {}
 
-let posts: PostItem[] = [
+type StoredPost = PostItem & {
+  deleted_at?: string | null
+  deleted_by?: number | null
+}
+
+let posts: StoredPost[] = [
   {
     id: 501,
     user_id: 1,
-    content: '今天团团第一次主动趴腿上，感觉正式被它录用成人类了。',
+    content: '给新接回家的猫咪准备了三层躲藏点和饮水机，明显能感觉到它更快放松下来。养猫前期先让它有安全感，真的比频繁抱抱更重要。',
     media_urls: ['https://images.unsplash.com/photo-1543852786-1cf6624b9987?auto=format&fit=crop&w=900&q=80'],
     like_count: 128,
-    tags: ['晒宠', '英短', '治愈日常'],
+    tags: ['养猫'],
     created_at: '2026-04-02T07:00:00',
     author: {
       id: 1,
@@ -295,16 +314,91 @@ let posts: PostItem[] = [
   {
     id: 502,
     user_id: 2,
-    content: '晚上接了两单上门喂养，猫咪比人类更有边界感，但零食能解决大部分问题。',
+    content: '周末带狗出门前先做了 15 分钟消耗训练，再去公园就不会一路暴冲。养狗这件事，前置消耗和稳定口令真的太关键了。',
     media_urls: ['https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=900&q=80'],
     like_count: 76,
-    tags: ['接单日记', '兼职铲屎官'],
+    tags: ['养狗'],
     created_at: '2026-04-02T05:00:00',
     author: {
       id: 2,
       username: '周阿梨',
       avatar: userTemplates[1].avatar,
       role: 'sitter'
+    }
+  },
+  {
+    id: 503,
+    user_id: 1,
+    content: '最近把主粮和冻干改成了少量多餐，家里两只毛孩子的进食速度和肠胃状态都稳定了很多。喂养节奏比一次倒满更重要。',
+    media_urls: ['https://images.unsplash.com/photo-1511044568932-338cba0ad803?auto=format&fit=crop&w=900&q=80'],
+    like_count: 64,
+    tags: ['喂养'],
+    created_at: '2026-04-01T20:10:00',
+    author: {
+      id: 1,
+      username: '林小满',
+      avatar: userTemplates[0].avatar,
+      role: 'owner'
+    }
+  },
+  {
+    id: 504,
+    user_id: 2,
+    content: '带猫做年度体检时，把近期食欲、排便和疫苗记录提前整理好，医生问诊会顺畅很多。医疗类问题一定别只靠猜。',
+    media_urls: ['https://images.unsplash.com/photo-1574158622682-e40e69881006?auto=format&fit=crop&w=900&q=80'],
+    like_count: 58,
+    tags: ['医疗'],
+    created_at: '2026-04-01T15:30:00',
+    author: {
+      id: 2,
+      username: '周阿梨',
+      avatar: userTemplates[1].avatar,
+      role: 'sitter'
+    }
+  },
+  {
+    id: 505,
+    user_id: 1,
+    content: '最近在练“坐下-等待-再出门”，每天门口重复 5 分钟，狗狗现在看到牵引绳也不会兴奋到原地转圈了。',
+    media_urls: ['https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=900&q=80'],
+    like_count: 83,
+    tags: ['训练'],
+    created_at: '2026-03-31T19:45:00',
+    author: {
+      id: 1,
+      username: '林小满',
+      avatar: userTemplates[0].avatar,
+      role: 'owner'
+    }
+  },
+  {
+    id: 506,
+    user_id: 2,
+    content: '第一次把狗狗送去家庭寄养前，我提前做了三次短时适应，还把睡垫和熟悉玩具一起送过去，寄养经验就是越细越安心。',
+    media_urls: ['https://images.unsplash.com/photo-1518717758536-85ae29035b6d?auto=format&fit=crop&w=900&q=80'],
+    like_count: 91,
+    tags: ['寄养经验'],
+    created_at: '2026-03-31T11:20:00',
+    author: {
+      id: 2,
+      username: '周阿梨',
+      avatar: userTemplates[1].avatar,
+      role: 'sitter'
+    }
+  },
+  {
+    id: 507,
+    user_id: 1,
+    content: '今天只想发一条纯文字：家里的小猫终于敢自己跳上窗边晒太阳了。没有配图，但还是想认真记录一下这个瞬间。',
+    media_urls: [],
+    like_count: 37,
+    tags: ['同城互助'],
+    created_at: '2026-03-30T17:00:00',
+    author: {
+      id: 1,
+      username: '林小满',
+      avatar: userTemplates[0].avatar,
+      role: 'owner'
     }
   }
 ]
@@ -435,6 +529,27 @@ export async function switchRole(role: 'owner' | 'sitter'): Promise<UserProfile>
 
 export async function fetchPets(): Promise<PetItem[]> {
   return wait(getCurrentUserPets())
+}
+
+export async function createPet(payload: CreatePetPayload): Promise<PetItem> {
+  const current = getCurrentUser()
+  const pet: PetItem = {
+    id: Math.max(0, ...allPets.map((item) => item.id)) + 1,
+    user_id: payload.user_id || current.id,
+    name: payload.name,
+    type: payload.type,
+    species: payload.species,
+    gender: payload.gender,
+    breed: payload.breed,
+    age: payload.age,
+    weight_kg: payload.weight_kg ?? null,
+    specialty: payload.specialty,
+    habits: payload.habits ?? null,
+    emergency_phone: payload.emergency_phone ?? null,
+    photos: payload.photos
+  }
+  allPets.push(pet)
+  return wait(pet)
 }
 
 export async function fetchOrders(): Promise<OrderItem[]> {
@@ -659,19 +774,27 @@ export async function sendSupportMessage(content: string, guestSessionId?: strin
   return fetchSupportMessages()
 }
 
-export async function fetchPosts(): Promise<PostItem[]> {
-  return wait(posts)
+function nextPostId() {
+  return Math.max(0, ...posts.map((item) => item.id)) + 1
 }
 
-export async function createPost(content: string, tags: string[]): Promise<PostItem> {
+export async function fetchPosts(): Promise<PostItem[]> {
+  return wait(
+    posts
+      .filter((item) => !item.deleted_at)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+  )
+}
+
+export async function createPost(payload: CreatePostPayload): Promise<PostItem> {
   const current = getCurrentUser()
-  const post: PostItem = {
-    id: Date.now(),
-    user_id: current.id,
-    content,
-    media_urls: ['https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=900&q=80'],
+  const post: StoredPost = {
+    id: nextPostId(),
+    user_id: payload.user_id || current.id,
+    content: payload.content,
+    media_urls: payload.media_urls ?? [],
     like_count: 0,
-    tags,
+    tags: Array.from(new Set((payload.tags ?? []).filter(Boolean))),
     created_at: new Date().toISOString(),
     author: {
       id: current.id,
@@ -684,18 +807,33 @@ export async function createPost(content: string, tags: string[]): Promise<PostI
   return wait(post)
 }
 
+export async function deletePost(postId: number, userId = getCurrentUser().id): Promise<PostItem> {
+  const post = posts.find((item) => item.id === postId)
+  if (!post) {
+    throw new Error('Post not found')
+  }
+  if (post.user_id !== userId) {
+    throw new Error('Only the author can delete this post')
+  }
+
+  post.deleted_at = new Date().toISOString()
+  post.deleted_by = userId
+  return wait(post)
+}
+
 export async function fetchHomeOverview(): Promise<HomeOverview> {
   expireUnpaidOrders()
   const current = getCurrentUser()
+  const activePosts = posts.filter((item) => !item.deleted_at)
   return wait({
     user: current,
     stats: {
       active_sitters: userTemplates.filter((item) => item.role === 'sitter').length,
       pending_orders: orders.filter((item) => item.status === 'pending').length,
-      community_posts: posts.length,
+      community_posts: activePosts.length,
       completed_orders: userTemplates.reduce((sum, item) => sum + item.completed_orders, 0)
     },
     nearby_orders: orders.filter((item) => item.status === 'pending'),
-    posts
+    posts: activePosts
   })
 }

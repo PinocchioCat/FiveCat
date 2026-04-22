@@ -40,5 +40,23 @@ class PetItem(BaseModel):
     gender: str
     breed: str
     age: int
+    weight_kg: float | None = None
     specialty: str
+    habits: str | None = None
+    emergency_phone: str | None = None
     photos: list[str] = Field(default_factory=list)
+
+
+class CreatePetRequest(BaseModel):
+    user_id: int
+    name: str = Field(..., min_length=1, max_length=30)
+    type: str = Field(..., pattern="^(dog|cat|other)$")
+    species: str = Field(..., min_length=1, max_length=30)
+    gender: str = Field(..., pattern="^(male|female|unknown)$")
+    breed: str = Field(..., min_length=1, max_length=50)
+    age: int = Field(..., ge=0, le=40)
+    weight_kg: float | None = Field(default=None, ge=0, le=120)
+    specialty: str = Field(..., min_length=1, max_length=300)
+    habits: str | None = Field(default=None, max_length=300)
+    emergency_phone: str | None = Field(default=None, max_length=20)
+    photos: list[str] = Field(default_factory=list, min_length=1, max_length=1)

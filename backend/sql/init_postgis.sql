@@ -20,11 +20,24 @@ CREATE TABLE IF NOT EXISTS pets (
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(30) NOT NULL,
     type VARCHAR(20) NOT NULL CHECK (type IN ('cat', 'dog', 'other')),
+    species VARCHAR(30) NOT NULL DEFAULT '其他',
+    gender VARCHAR(20) NOT NULL DEFAULT 'unknown' CHECK (gender IN ('male', 'female', 'unknown')),
     breed VARCHAR(50),
     age INTEGER,
+    weight_kg NUMERIC(5, 2),
+    specialty TEXT,
+    habits TEXT,
+    emergency_phone VARCHAR(20),
     photos JSONB NOT NULL DEFAULT '[]'::jsonb,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE pets ADD COLUMN IF NOT EXISTS species VARCHAR(30) NOT NULL DEFAULT '其他';
+ALTER TABLE pets ADD COLUMN IF NOT EXISTS gender VARCHAR(20) NOT NULL DEFAULT 'unknown';
+ALTER TABLE pets ADD COLUMN IF NOT EXISTS weight_kg NUMERIC(5, 2);
+ALTER TABLE pets ADD COLUMN IF NOT EXISTS specialty TEXT;
+ALTER TABLE pets ADD COLUMN IF NOT EXISTS habits TEXT;
+ALTER TABLE pets ADD COLUMN IF NOT EXISTS emergency_phone VARCHAR(20);
 
 CREATE TABLE IF NOT EXISTS orders (
     id BIGSERIAL PRIMARY KEY,
@@ -52,7 +65,9 @@ CREATE TABLE IF NOT EXISTS posts (
     media_urls JSONB NOT NULL DEFAULT '[]'::jsonb,
     like_count INTEGER NOT NULL DEFAULT 0,
     tags JSONB NOT NULL DEFAULT '[]'::jsonb,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMP NULL,
+    deleted_by BIGINT REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS reviews (
